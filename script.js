@@ -3,7 +3,7 @@ const canvas = document.getElementById('gameScreen');
 const ctx = canvas.getContext('2d'); 
 
 canvas.width = window.innerWidth / 1.8;
-canvas.height = window.innerHeight / 1.2;
+canvas.height = window.innerHeight / 1.0;
 
 var board = new Image();
 board.src = "assets/output-onlinepngtools.png";
@@ -23,7 +23,11 @@ bottomLeft.src = "assets/character/bottomLeft.png";
 var bottomRight = new Image();
 bottomRight.src = "assets/character/bottomRight.png";
 
+var scroll = new Image();
+scroll.src = "assets/items/Papyrus 1-19X22-min.png";
 
+var projectTemplate = new Image();
+projectTemplate.src = "assets/items/ScrollTemplate.png";
 
 var keymap = {
     37: 'left',
@@ -60,6 +64,21 @@ var tailx = 60;
 var taily = 200;
 
 var paused = false;
+var death = false;
+var deathTimer = 0;
+
+
+var scrollFrame = 0;
+var scrollWidth = 19;
+var scrollHeight = 22;
+var scrollFramesPerRow =18
+var scrollTotalFrames = 1;
+var scrollFrameX = 0;
+var scrollFrameY = 0;
+var scrollScale = 2;
+var scrollX = Math.floor(Math.random() * ((canvas.width - 80 - scrollHeight * scrollScale)/speed)) * speed + 30;
+var scrollY = Math.floor(Math.random() * ((canvas.height - 130 - scrollHeight * scrollScale)/speed)) * speed + 100;
+
 
 
 
@@ -89,35 +108,75 @@ function renderTurn(angle, nextAngle){
     snake.body[0].image = bottomLeft;
 }
 
+
+
+function animateScroll() {
+    scrollFrame++;
+    if (scrollFrame >= scrollFramesPerRow) {
+        scrollFrame = 0;
+    }
+    scrollFrameX = scrollFrame % scrollFramesPerRow * scrollWidth;
+    scrollFrameY = Math.floor(scrollFrame / scrollFramesPerRow) * scrollHeight;
+
+    ctx.drawImage(scroll, scrollFrameX, scrollFrameY, scrollWidth, scrollHeight, scrollX, scrollY, scrollWidth*scrollScale, scrollHeight*scrollScale);
+}
+
+function spawnScroll(){
+    scrollX = Math.floor(Math.random() * ((canvas.width - 80 - scrollHeight * scrollScale)/speed)) * speed + 30;
+    scrollY = Math.floor(Math.random() * ((canvas.height - 130 - scrollHeight * scrollScale)/speed)) * speed + 100;
+}
+
 var snake = {
     x: 100,
     y: 200,
     width: 300,
     height: 300,
     head: new Body(this.x, this.y, head, 0, "head"),
-    body: [new Body(80, 200, bodyImg, 90 * Math.PI / 180, "body"), new Body(60, 200, bodyImg, 0, "body"), new Body(40, 200, bodyImg, 0, "tail")],
+    body: [new Body(80, 200, bodyImg, 90 * Math.PI / 180, "body"), new Body(60, 200, bodyImg, 0, "body"), new Body(40, 200, bodyImg, 0, "tail"), new Body(20, 200, bodyImg, 0, "tail")],
+    //Need to draw the snake at even the 'inbetween' values of the grid squares
     render: function(){
         rotate(angle, this.x, this.y, this.head.image);
         this.body.forEach(piece => {
             rotate(piece.rotation, piece.x, piece.y, piece.image);
         })
     },
+    //Should update the body every frame but only accept input changes 
     updateBody: function(){
-        renderTurn(this.body[0].rotation, angle);
-        this.body[0].x = this.x;
-        this.body[0].y = this.y;
-        this.body[0].rotation = angle;
-        for (let i = this.body.length - 1; i > 0; i--){
-            this.body[i].x = this.body[i - 1].x;
-            this.body[i].y = this.body[i - 1].y;
-            this.body[i].rotation = this.body[i - 1].rotation;
-            this.body[i].type = this.body[i - 1].type;
-            if (i == this.body.length - 1){
-                this.body[i].image = tail;
+        if (death){
+            deathTimer++;
+            if (deathTimer > 5){
+                if (this.body.length > 4){
+                    this.body.pop();
+                }
+                else{
+                    //reset
+                    snake.x = 300;
+                    snake.y = 300;
+                    death = false;
+                }
+                deathTimer = 0;
             }
-            else{
-                this.body[i].image = this.body[i - 1].image;
+        }
+        else{
+            renderTurn(this.body[0].rotation, angle);
+            this.body[0].y = this.y;
+            this.body[0].rotation = angle;
+            for (let i = this.body.length - 1; i > 0; i--){
+                this.body[0].x = this.x;
+                this.body[i].x = this.body[i - 1].x;
+                this.body[i].y = this.body[i - 1].y;
+                this.body[i].rotation = this.body[i - 1].rotation;
+                this.body[i].type = this.body[i - 1].type;
+                if (i == this.body.length - 1){
+                    this.body[i].image = tail;
+                }
+                else{
+                    this.body[i].image = this.body[i - 1].image;
+                }
             }
+    
+            this.x += xVel;
+            this.y += yVel;
         }
     }
 }
@@ -136,7 +195,6 @@ function collide(){
     if (snake.x < 35 || snake.x > canvas.width - 35 || snake.y < 55 || snake.y > canvas.height - 55){
         return true;
     }
-
     for (let i = 0; i < snake.body.length; i++){
         let piece = snake.body[i];
         if (snake.x == piece.x && snake.y == piece.y){
@@ -163,6 +221,8 @@ function startAnimating(fps) {
 let frameCount = 0;
 let moveInterval = 3;
 
+let eaten = false;
+
 function tick(){
     now = Date.now();
     var elapsed = now - then;
@@ -188,25 +248,56 @@ function tick(){
                 xVel = 0
                 angle = 180 * Math.PI / 180;
             }
+            // if (currKey == 'space'){
+            //     snake.body.push(new Body(snake.body[snake.body.length - 1].x - 20, snake.body[snake.body.length - 1].y, bodyImg, 0, "body"));
+            // }
             if (currKey == 'space'){
-                snake.body.push(new Body(snake.body[snake.body.length - 1].x - 20, snake.body[snake.body.length - 1].y, bodyImg, 0, "body"));
+                spawnScroll();
             }
 
             snake.updateBody();
             
-            snake.x += xVel;
-            snake.y += yVel;
+            //Need to update this to move in smaller increments that account for the time between frames
+            // i.e xVel * elapsed / 1000 
+            // This will result in the snake having positions "inbetween" the grid squares
+            // - to account for this, need to round it's position up to the nearest grid square
+            // - i.e Math.round(snake.x / speed) * speed
 
-            if (collide()){
-                snake.x = 100;
-                snake.y = 200;
+            if (snake.x >= scrollX && snake.x <= scrollX + scrollWidth *2 && snake.y >= scrollY && snake.y <= scrollY + scrollHeight * 2){
+                spawnScroll();
+                eaten = true;
+                //Have a counter for the number of scrolls eaten and use that to get the corresponding project
+                var project = document.getElementById("1");
+
+                project.style.left = scrollX + "px";
+                project.style.top = scrollY + "px";
+                project.style.display = "block";
+                project.style.animation = "expand 2s ease-in-out";
+                project.style.animation = 'none';
+                project.offsetHeight;
+                project.style.animation = null;
+                
             }
-
+            
+            if (collide()){
+                death = true;
+                // snake.x = 100;
+                // snake.y = 200;
+            }
+            
+            
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (head.complete && board.complete){
                 ctx.drawImage(board, 0, 0, canvas.width, canvas.height);
                 snake.render();
+                animateScroll();
             }
+
+            if (eaten){
+                snake.body.push(new Body(snake.body[snake.body.length - 1].x - 20, snake.body[snake.body.length - 1].y, bodyImg, 0, "body"));
+                eaten = false;
+            }
+            
 
             window.requestAnimationFrame(tick);
             then = now - (elapsed % fpsInterval);
@@ -215,8 +306,6 @@ function tick(){
             window.requestAnimationFrame(tick);
         }
     }
-
-    
 
 }
 
