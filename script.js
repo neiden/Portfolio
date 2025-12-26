@@ -18,10 +18,10 @@ var tail = new Image();
 tail.src = "assets/character/tail.png";
 
 var bottomLeft = new Image();
-bottomLeft.src = "assets/character/bottomLeft.png";
+bottomLeft.src = "assets/character/bottomleft.png";
 
 var bottomRight = new Image();
-bottomRight.src = "assets/character/bottomRight.png";
+bottomRight.src = "assets/character/bottomright.png";
 
 var scroll = new Image();
 scroll.src = "assets/items/Papyrus 1-19X22-min.png";
@@ -267,7 +267,7 @@ function tick(){
                 spawnScroll();
                 eaten = true;
                 //Have a counter for the number of scrolls eaten and use that to get the corresponding project
-                var project = document.getElementById("1");
+                /*var project = document.getElementById("1");
 
                 project.style.left = scrollX + "px";
                 project.style.top = scrollY + "px";
@@ -276,7 +276,7 @@ function tick(){
                 project.style.animation = 'none';
                 project.offsetHeight;
                 project.style.animation = null;
-                
+                */
             }
             
             if (collide()){
